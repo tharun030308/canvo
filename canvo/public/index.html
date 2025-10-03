@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CANVO (THE CANVAS CHATTING</title>
+    <style>
+      @font-face{
+        font-family: 'bebas';
+        src: url(BebasNeue-Regular.ttf);
+        format('truetype');
+      }
+      body, html {
+        margin: 0;
+        padding: 0;
+        background: #1e1e27;
+        font-family: 'bebas',sans-serif;
+      }
+
+      .toolbar-top {
+        position: fixed;
+        top: 0px;
+        left: 0px;
+        right: 0px;
+        z-index: 100;
+        display: flex;
+        gap: 10px;
+        background: #df0139;
+        padding: 2px;
+        border-radius: 0px;
+        box-shadow: 0 0 10px #boa9e5;
+        height: 150px
+      }
+
+      .toolbar-bottom {
+        position: fixed;
+        bottom: 5px;
+        left: 10px;
+        right: 10px;
+        z-index: 100;
+        height: 115px;
+        display: flex;
+        gap: 10px;
+        background: #1e1e27;
+        padding: 10px;
+        border-radius: 12px;
+      }
+
+      .textbox {
+        padding: 10px;
+        width: 80%;
+        height:105px;
+        border: 0px solid #1e1e27;
+        border-radius:50px;
+        background: #e2e2e2;
+        color: black;
+        fontsize: px;
+        outline: none;
+      }
+      .low-btn {
+        width:50px; 
+        height:50px;
+        border-radius: 50%;
+        overflow:hidden; 
+        height: 115px;
+        width:115px;
+        padding:0; 
+        border: 0px solid #ffffff;
+        border-radius:50%;
+        background: white;
+        display:flex;
+        align-items: center;
+        justify-content:center;
+
+      }
+      .low-btn img{
+        width:100%; 
+        height:100%;
+        object-fit: cover;
+
+        display: block;
+      }
+      
+      .toolbar button, .toolbar input[type="color"] {
+      padding: 8px 10px;
+      border: none;
+      border-radius: 8px;
+      background: #444;
+      color: white;
+      cursor: pointer;
+    }
+      .top-btn {
+        width:115px; 
+        height:115px;
+        margin-left:auto;
+        margin-top:18px;
+        border-radius:8px; 
+        overflow:hidden; 
+        padding:0; 
+        border: 2px solid #0000;
+        background: black;
+        display:flex;
+        align-items: center;
+        justify-content:center;
+      }
+      .top-btn img{
+      width:100%; 
+      height:100%;
+      object-fit: cover;
+      display: block;
+      }
+
+
+      canvas {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1;
+        cursor: crosshair;
+      }
+  </style>
+</head>
+<body>
+  <div class="toolbar-top">
+    <h1 style="font-family: 'bebas';font-size:115px;color:  #e2e2e2;padding: 0;margin-top:5px;margin-left: 40px;".>C A N V O</h1>
+    <input type="color" id="cp" value="#ffffff" style="width:115px;height:115px;margin-left:auto;margin-top:18px;border-radius:8px;overflow:hidden;padding:0;border: 2px solid #0000;background: black;" />
+    <button id = "cl" class="top-btn"> 
+      <img src="clear.jpg" alt="icon"> 
+    </button>
+    <button id = "t" class="top-btn"> 
+      <img src="pencil.jpg" alt="icon">
+    </button>
+  </div>
+  <div class="toolbar-bottom">  
+    <input type="text" id="text" class = 'textbox' style="font-size:35px;"/>
+    <button id="send" class="low-btn" onclick="send()" >
+      <img src="send.jpg" alt="icon" >
+    </button>
+    <button id="scrollToggle" class="low-btn" >
+      <img src="scroll.jpg" alt="icon" >
+    </button>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const cp = document.getElementById('cp');
+    const clBtn = document.getElementById('cl');
+    const tBtn = document.getElementById('t');
+    const scrollBtn = document.getElementById('scrollToggle');
+
+
+
+
+    canvas.width = window.innerWidth;
+    canvas.height = 50000;
+    
+    // Initialize body overflow
+    document.body.style.overflow = "hidden";
+
+    lsc();
+
+    let drawing = false;
+    let cc = cp.value;
+    let pencilOn = true;
+    let scrollEnabled = false;
+    let sprocess = null;
+    let x = 40;
+    let y = 200;
+
+    cp.addEventListener("input", () => {
+      cc = cp.value;
+    });
+
+    clBtn.addEventListener("click", () => {
+      cl();
+    });
+
+    tBtn.addEventListener("click", () => {
+      pencilOn = !pencilOn;
+      const img = tBtn.querySelector('img');
+      img.src = pencilOn ? "pencil.jpg" : "penciloff.png";
+      document.body.style.overflow = pencilOn ? "hidden" : "auto";
+      
+      console.log("Pencil toggled:", pencilOn, "Scroll enabled:", !pencilOn);
+    });
+
+    scrollBtn.addEventListener("click", () => {
+      
+    });
+
+    function reload() {
+      location.reload();
+    }
+
+    function spc() {
+      const dataURL = canvas.toDataURL("image/png");
+
+      fetch("/save-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: dataURL }),
+      })
+      .then(res => res.text())
+      .then(msg => console.log(msg))
+      .catch(err => console.error("Save failed", err));
+    }
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    }
+
+    function start(e) {
+      if (!pencilOn) return;
+      drawing = true;
+      const pos = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    }
+
+    function lsc() {
+      const savedImg = new Image();
+      savedImg.src = 'canvas.png';
+      savedImg.onload = () => ctx.drawImage(savedImg, 0, 0);
+      
+    }
+
+    function draw(e) {
+      if (!drawing || !pencilOn) return;
+      const pos = getPos(e);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.strokeStyle = cc;
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.stroke();
+    }
+
+    function stop() {
+      drawing = false;
+      ctx.beginPath();
+      spc();
+    }
+    function send() {
+      const text = document.getElementById('text').value;
+      const tw = ctx.measureText(text).width;
+      const th = 20;
+      ctx.fillstyle = "#fff";
+      ctx.fillRect(x, y, tw + 20, th + 20);
+      ctx.fillStyle = cc;
+      ctx.font = "20px sans-serif";
+      ctx.fillText(text, x-20, y+40);
+      document.getElementById('text').value = '';
+      spc();
+      
+    }
+
+    function cl(){
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      spc();
+    }
+
+
+    // Add event listeners for drawing
+    canvas.addEventListener("mousedown", start);
+    canvas.addEventListener("mousemove", draw);
+    canvas.addEventListener("mouseup", stop);
+    canvas.addEventListener("mouseout", stop);
+
+    // Touch events for mobile
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      start(e);
+    });
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      draw(e);
+    });
+    canvas.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      stop();
+    });
+  </script>
+</body>
+</html>
